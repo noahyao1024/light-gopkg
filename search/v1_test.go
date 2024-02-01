@@ -29,7 +29,9 @@ func TestV1(t *testing.T) {
 		},
 	})
 
-	response := V1(nil, &V1Request{Index: index, Query: &V1RequestQuery{Raw: "orl", Reg: regexp.MustCompile(`.+rl`)}})
+	response := V1(nil, &V1Request{Index: index, Query: &V1RequestQuery{Raw: "orl", Regs: map[string]*regexp.Regexp{
+		"hello": regexp.MustCompile(`.+rl`),
+	}}})
 
 	if assert.Equal(t, true, response.Hits.Total > 0) {
 		assert.Equal(t, "123", response.Hits.Hits[0])

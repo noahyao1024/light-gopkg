@@ -63,8 +63,8 @@ type V1Response struct {
 }
 
 type V1RequestQuery struct {
-	Raw string `json:"raw"`
-	Reg *regexp.Regexp
+	Raw  string `json:"raw"`
+	Regs map[string]*regexp.Regexp
 }
 
 // Hits is the hits of search v1
@@ -133,10 +133,11 @@ func V1(ctx *gin.Context, request *V1Request) *V1Response {
 	recalls := make([]*V1Doc, 0)
 
 	for _, doc := range v1Indices[offset].Naive {
-		for _, v := range doc.Keywords {
-			if request.Query.Reg != nil &&
-				request.Query.Reg.MatchString(v) {
-				recalls = append(recalls, doc)
+		for k, v := range doc.Keywords {
+			if reg := request.Query.Regs[k]; reg != nil {
+				if reg.MatchString(v) {
+					recalls = append(recalls, doc)
+				}
 			}
 		}
 	}
@@ -155,10 +156,20 @@ func V1Put(ctx *gin.Context, request *V1Request) error {
 	offset := V1GetIndexMapping(request.Index)
 	if offset < 0 {
 		V1Index(ctx, request.Index)
+		offset = V1GetIndexMapping(request.Index)
 	}
 
 	v1Indices[offset].Lock.Lock()
 	defer v1Indices[offset].Lock.Unlock()
+
+	// Merge keywords into source
+	if request.Source == nil {
+		request.Source = make(map[string]interface{})
+	}
+
+	for k, v := range request.Keywords {
+		request.Source[k] = v
+	}
 
 	v1Indices[offset].Naive[request.ID] = &V1Doc{
 		ID:         request.ID,
