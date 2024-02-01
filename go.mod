@@ -1,4 +1,4 @@
-module github.com/light-gopkg
+module github.com/noahyao1024/light-gopkg
 
 go 1.21.0
 
