@@ -1,6 +1,6 @@
 module github.com/noahyao1024/light-gopkg
 
-go 1.21.0
+go 1.18.0
 
 require (
 	github.com/gin-gonic/gin v1.9.1
