@@ -47,13 +47,13 @@ type V1Doc struct {
 
 // V1Request is the request of search v1
 type V1Request struct {
-	Query    *V1RequestQuery        `json:"query"`
-	Index    string                 `json:"index"`
-	From     int64                  `json:"from"`
-	Size     int64                  `json:"size"`
-	ID       string                 `json:"id"`
-	Keywords map[string]string      `json:"keywords"`
-	Source   map[string]interface{} `json:"source"`
+	Query    *V1RequestQuery        `json:"query,omitempty"`
+	Index    string                 `json:"index,omitempty"`
+	From     int64                  `json:"from,omitempty"`
+	Size     int64                  `json:"size,omitempty"`
+	ID       string                 `json:"id,omitempty"`
+	Keywords map[string]string      `json:"keywords,omitempty"`
+	Source   map[string]interface{} `json:"source,omitempty"`
 }
 
 // V1Response is the response of search v1
@@ -154,7 +154,7 @@ func V1(ctx *gin.Context, request *V1Request) *V1Response {
 func V1Put(ctx *gin.Context, request *V1Request) error {
 	offset := V1GetIndexMapping(request.Index)
 	if offset < 0 {
-		return fmt.Errorf("index not found")
+		V1Index(ctx, request.Index)
 	}
 
 	v1Indices[offset].Lock.Lock()
