@@ -69,6 +69,8 @@ type V1RequestQuery struct {
 
 // Hits is the hits of search v1
 type V1ResponseHits struct {
+	From     int      `json:"from"`
+	Size     int      `json:"size"`
 	Total    int      `json:"total"`
 	MaxScore int64    `json:"max_score"`
 	Hits     []*V1Doc `json:"hits"`
@@ -142,11 +144,28 @@ func V1(ctx *gin.Context, request *V1Request) *V1Response {
 		}
 	}
 
+	if request.From < 0 || request.From > int64(len(recalls)) {
+		request.From = 0
+	}
+
+	if request.Size <= 0 || request.Size > 200 {
+		request.Size = 10
+	}
+
 	response := &V1Response{
 		Hits: V1ResponseHits{
+			From:  int(request.From),
+			Size:  int(request.Size),
 			Total: len(recalls),
-			Hits:  recalls,
 		},
+	}
+
+	if response.Hits.Total > 0 {
+		if request.From+request.Size > int64(len(recalls)) {
+			response.Hits.Hits = recalls[request.From:]
+		} else {
+			response.Hits.Hits = recalls[request.From : request.From+request.Size]
+		}
 	}
 
 	return response
