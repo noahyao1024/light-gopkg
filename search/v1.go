@@ -63,8 +63,8 @@ type V1Response struct {
 }
 
 type V1RequestQuery struct {
-	Raw  string `json:"raw"`
-	Regs map[string]*regexp.Regexp
+	Raw  string                    `json:"raw,omitempty"`
+	Regs map[string]*regexp.Regexp `json:"regs,omitempty"`
 }
 
 // Hits is the hits of search v1
