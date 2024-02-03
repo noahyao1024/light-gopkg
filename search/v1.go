@@ -135,12 +135,18 @@ func V1(ctx *gin.Context, request *V1Request) *V1Response {
 	recalls := make([]*V1Doc, 0)
 
 	for _, doc := range v1Indices[offset].Naive {
+		matchedCount := 0
+
 		for k, v := range doc.Keywords {
 			if reg := request.Query.Regs[k]; reg != nil {
 				if reg.MatchString(v) {
-					recalls = append(recalls, doc)
+					matchedCount++
 				}
 			}
+		}
+
+		if matchedCount == len(request.Query.Regs) {
+			recalls = append(recalls, doc)
 		}
 	}
 
@@ -199,4 +205,16 @@ func V1Put(ctx *gin.Context, request *V1Request) error {
 	}
 
 	return nil
+}
+
+func V1Reset(ctx *gin.Context, index string) {
+	offset := V1GetIndexMapping(index)
+	if offset < 0 {
+		return
+	}
+
+	v1Indices[offset].Lock.Lock()
+	defer v1Indices[offset].Lock.Unlock()
+
+	v1Indices[offset].Naive = make(map[string]*V1Doc)
 }
