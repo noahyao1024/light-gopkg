@@ -49,8 +49,8 @@ type V1Doc struct {
 type V1Request struct {
 	Query    *V1RequestQuery        `json:"query,omitempty"`
 	Index    string                 `json:"index,omitempty"`
-	From     int64                  `json:"from,omitempty"`
-	Size     int64                  `json:"size,omitempty"`
+	From     int64                  `json:"from"`
+	Size     int64                  `json:"size"`
 	ID       string                 `json:"id,omitempty"`
 	Keywords map[string]string      `json:"keywords,omitempty"`
 	Source   map[string]interface{} `json:"source,omitempty"`
@@ -207,14 +207,34 @@ func V1Put(ctx *gin.Context, request *V1Request) error {
 	return nil
 }
 
-func V1Reset(ctx *gin.Context, index string) {
+func V1Reset(ctx *gin.Context, index string) string {
 	offset := V1GetIndexMapping(index)
 	if offset < 0 {
-		return
+		return "Index not found"
 	}
 
 	v1Indices[offset].Lock.Lock()
 	defer v1Indices[offset].Lock.Unlock()
 
 	v1Indices[offset].Naive = make(map[string]*V1Doc)
+
+	return "OK"
+}
+
+func V1Peak(ctx *gin.Context, index string) map[string]interface{} {
+	offset := V1GetIndexMapping(index)
+	if offset < 0 {
+		return map[string]interface{}{
+			"message": "Index not found",
+		}
+	}
+
+	v1Indices[offset].Lock.RLock()
+	defer v1Indices[offset].Lock.RUnlock()
+
+	return map[string]interface{}{
+		"index":       index,
+		"initialized": v1Indices[offset].Initialized,
+		"total":       len(v1Indices[offset].Naive),
+	}
 }
