@@ -3,6 +3,8 @@ package search
 import (
 	"fmt"
 	"regexp"
+	"sort"
+	"strconv"
 	"sync"
 	"time"
 
@@ -38,6 +40,7 @@ type v1IndexWrapper struct {
 
 type V1Doc struct {
 	ID         string                 `json:"_id"`
+	SortableID int64                  `json:"_sortable_id"`
 	Keywords   map[string]string      `json:"_keywords"`
 	Source     map[string]interface{} `json:"_source"`
 	Index      string                 `json:"_index"`
@@ -65,6 +68,7 @@ type V1Response struct {
 type V1RequestQuery struct {
 	Raw  string                    `json:"raw,omitempty"`
 	Regs map[string]*regexp.Regexp `json:"regs,omitempty"`
+	Mode string                    `json:"mode,omitempty"`
 }
 
 // Hits is the hits of search v1
@@ -145,10 +149,21 @@ func V1(ctx *gin.Context, request *V1Request) *V1Response {
 			}
 		}
 
-		if matchedCount == len(request.Query.Regs) {
-			recalls = append(recalls, doc)
+		switch request.Query.Mode {
+		case "or":
+			if matchedCount > 0 {
+				recalls = append(recalls, doc)
+			}
+		case "and":
+			if matchedCount == len(request.Query.Regs) {
+				recalls = append(recalls, doc)
+			}
 		}
 	}
+
+	sort.SliceStable(recalls, func(i, j int) bool {
+		return recalls[i].SortableID < recalls[j].SortableID
+	})
 
 	if request.From < 0 || request.From > int64(len(recalls)) {
 		request.From = 0
@@ -196,8 +211,14 @@ func V1Put(ctx *gin.Context, request *V1Request) error {
 		request.Source[k] = v
 	}
 
+	sortableID, _ := strconv.ParseInt(request.ID, 10, 64)
+	if sortableID == 0 {
+		sortableID = time.Now().UnixNano()
+	}
+
 	v1Indices[offset].Naive[request.ID] = &V1Doc{
 		ID:         request.ID,
+		SortableID: sortableID,
 		Keywords:   request.Keywords,
 		Source:     request.Source,
 		Index:      request.Index,
