@@ -3,6 +3,8 @@ package search
 import (
 	"fmt"
 	"regexp"
+	"sort"
+	"strconv"
 	"sync"
 	"time"
 
@@ -38,6 +40,7 @@ type v1IndexWrapper struct {
 
 type V1Doc struct {
 	ID         string                 `json:"_id"`
+	SortableID int64                  `json:"_sortable_id"`
 	Keywords   map[string]string      `json:"_keywords"`
 	Source     map[string]interface{} `json:"_source"`
 	Index      string                 `json:"_index"`
@@ -158,6 +161,10 @@ func V1(ctx *gin.Context, request *V1Request) *V1Response {
 		}
 	}
 
+	sort.SliceStable(recalls, func(i, j int) bool {
+		return recalls[i].SortableID < recalls[j].SortableID
+	})
+
 	if request.From < 0 || request.From > int64(len(recalls)) {
 		request.From = 0
 	}
@@ -204,8 +211,14 @@ func V1Put(ctx *gin.Context, request *V1Request) error {
 		request.Source[k] = v
 	}
 
+	sortableID, _ := strconv.ParseInt(request.ID, 10, 64)
+	if sortableID == 0 {
+		sortableID = time.Now().UnixNano()
+	}
+
 	v1Indices[offset].Naive[request.ID] = &V1Doc{
 		ID:         request.ID,
+		SortableID: sortableID,
 		Keywords:   request.Keywords,
 		Source:     request.Source,
 		Index:      request.Index,
