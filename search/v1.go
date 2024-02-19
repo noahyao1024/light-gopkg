@@ -65,6 +65,7 @@ type V1Response struct {
 type V1RequestQuery struct {
 	Raw  string                    `json:"raw,omitempty"`
 	Regs map[string]*regexp.Regexp `json:"regs,omitempty"`
+	Mode string                    `json:"mode,omitempty"`
 }
 
 // Hits is the hits of search v1
@@ -145,8 +146,15 @@ func V1(ctx *gin.Context, request *V1Request) *V1Response {
 			}
 		}
 
-		if matchedCount == len(request.Query.Regs) {
-			recalls = append(recalls, doc)
+		switch request.Query.Mode {
+		case "or":
+			if matchedCount > 0 {
+				recalls = append(recalls, doc)
+			}
+		case "and":
+			if matchedCount == len(request.Query.Regs) {
+				recalls = append(recalls, doc)
+			}
 		}
 	}
 
