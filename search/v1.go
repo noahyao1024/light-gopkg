@@ -149,7 +149,11 @@ func V1(ctx *gin.Context, request *V1Request) *V1Response {
 
 		matchedAnd := true
 		matchedOr := true
+
 		matchedFilter := true
+		if len(request.Query.Filters) > 0 {
+			matchedFilter = false
+		}
 
 		for k, v := range doc.Keywords {
 			if reg := request.Query.RegsAnd[k]; reg != nil {
