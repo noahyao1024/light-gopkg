@@ -71,6 +71,7 @@ type V1RequestQuery struct {
 	RawOrs   []string                  `json:"raw_ors,omitempty"`
 	RegsAnd  map[string]*regexp.Regexp `json:"regs_and,omitempty"`
 	RegsOr   map[string]*regexp.Regexp `json:"regs_or,omitempty"`
+	Filters  map[string]string         `json:"filters,omitempty"`
 	SortMode string                    `json:"sort_mode,omitempty"`
 	SortBys  string                    `json:"sort_bys,omitempty"`
 }
@@ -146,6 +147,10 @@ func V1(ctx *gin.Context, request *V1Request) *V1Response {
 		matchedAndCount := 0
 		matchedOrCount := 0
 
+		matchedAnd := true
+		matchedOr := true
+		matchedFilter := true
+
 		for k, v := range doc.Keywords {
 			if reg := request.Query.RegsAnd[k]; reg != nil {
 				if reg.MatchString(v) {
@@ -158,10 +163,18 @@ func V1(ctx *gin.Context, request *V1Request) *V1Response {
 					matchedOrCount++
 				}
 			}
-		}
 
-		matchedAnd := true
-		matchedOr := true
+			if filter := request.Query.Filters[k]; len(filter) > 0 {
+				filterBuckets := make(map[string]bool, 0)
+				for _, f := range strings.Split(filter, ",") {
+					filterBuckets[f] = true
+				}
+
+				if _, exists := filterBuckets[v]; exists {
+					matchedFilter = true
+				}
+			}
+		}
 
 		if len(request.Query.RegsAnd) > 0 {
 			matchedAnd = matchedAndCount == len(request.Query.RegsAnd)
@@ -171,7 +184,7 @@ func V1(ctx *gin.Context, request *V1Request) *V1Response {
 			matchedOr = matchedOrCount > 0
 		}
 
-		if matchedAnd && matchedOr {
+		if matchedAnd && matchedOr && matchedFilter {
 			recalls = append(recalls, doc)
 		}
 	}
