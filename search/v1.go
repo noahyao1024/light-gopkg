@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -66,9 +67,12 @@ type V1Response struct {
 }
 
 type V1RequestQuery struct {
-	Raw  string                    `json:"raw,omitempty"`
-	Regs map[string]*regexp.Regexp `json:"regs,omitempty"`
-	Mode string                    `json:"mode,omitempty"`
+	RawAnds  []string                  `json:"raw,omitempty"`
+	RawOrs   []string                  `json:"raw_ors,omitempty"`
+	RegsAnd  map[string]*regexp.Regexp `json:"regs_and,omitempty"`
+	RegsOr   map[string]*regexp.Regexp `json:"regs_or,omitempty"`
+	SortMode string                    `json:"sort_mode,omitempty"`
+	SortBys  string                    `json:"sort_bys,omitempty"`
 }
 
 // Hits is the hits of search v1
@@ -139,30 +143,60 @@ func V1(ctx *gin.Context, request *V1Request) *V1Response {
 	recalls := make([]*V1Doc, 0)
 
 	for _, doc := range v1Indices[offset].Naive {
-		matchedCount := 0
+		matchedAndCount := 0
+		matchedOrCount := 0
 
 		for k, v := range doc.Keywords {
-			if reg := request.Query.Regs[k]; reg != nil {
+			if reg := request.Query.RegsAnd[k]; reg != nil {
 				if reg.MatchString(v) {
-					matchedCount++
+					matchedAndCount++
+				}
+			}
+
+			if reg := request.Query.RegsOr[k]; reg != nil {
+				if reg.MatchString(v) {
+					matchedOrCount++
 				}
 			}
 		}
 
-		switch request.Query.Mode {
-		case "or":
-			if matchedCount > 0 {
-				recalls = append(recalls, doc)
-			}
-		case "and":
-			if matchedCount == len(request.Query.Regs) {
-				recalls = append(recalls, doc)
-			}
+		matchedAnd := true
+		matchedOr := true
+
+		if len(request.Query.RegsAnd) > 0 {
+			matchedAnd = matchedAndCount == len(request.Query.RegsAnd)
+		}
+
+		if len(request.Query.RegsOr) > 0 {
+			matchedOr = matchedOrCount > 0
+		}
+
+		if matchedAnd && matchedOr {
+			recalls = append(recalls, doc)
 		}
 	}
 
 	sort.SliceStable(recalls, func(i, j int) bool {
-		return recalls[i].SortableID < recalls[j].SortableID
+		for _, sortBy := range strings.Split(request.Query.SortBys, ",") {
+			vi := recalls[i].Keywords[sortBy]
+			vj := recalls[j].Keywords[sortBy]
+
+			if vi == vj {
+				continue
+			}
+
+			if request.Query.SortMode == "asc" {
+				return vi < vj
+			}
+
+			return vi > vj
+		}
+
+		if request.Query.SortMode == "asc" {
+			return recalls[i].SortableID < recalls[j].SortableID
+		}
+
+		return recalls[i].SortableID > recalls[j].SortableID
 	})
 
 	if request.From < 0 || request.From > int64(len(recalls)) {
